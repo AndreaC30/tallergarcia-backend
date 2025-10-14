@@ -22,13 +22,25 @@ def get_db():
         db.close()
 
 # 📌 Endpoint para registrar usuario
-@router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
-    if crud.get_user_by_email(db, user.email):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email ya registrado")
-    if crud.get_user_by_username(db, user.username):  # ✅ Validación por username
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nombre de usuario ya en uso")
-    return crud.create_user(db, user)
+    try:
+        print("📥 Intentando registrar usuario:", user)
+
+        if crud.get_user_by_email(db, user.email):
+            raise HTTPException(status_code=400, detail="Email ya registrado")
+        
+        if crud.get_user_by_username(db, user.username):
+            raise HTTPException(status_code=400, detail="Nombre de usuario en uso")
+        
+        new_user = crud.create_user(db, user)
+        print("✅ Usuario registrado:", new_user)
+        return new_user
+
+    except Exception as e:
+        print("❌ Error interno al registrar usuario:", str(e))  # 👈 log del error real
+        raise HTTPException(status_code=500, detail="Error interno al registrar usuario")
+
 
 # 🔐 Endpoint para login y generación de token
 @router.post("/login", response_model=Token)
@@ -41,7 +53,7 @@ def login(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales incorrectas")
     token = create_access_token(
         data={"sub": user.email},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)  # ✅ Expiración explícita
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     return {"access_token": token, "token_type": "bearer"}
 
